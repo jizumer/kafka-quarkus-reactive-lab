@@ -1,27 +1,30 @@
 package com.jizumer;
 
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.faulttolerance.api.ExponentialBackoff;
+import io.smallrye.reactive.messaging.annotations.Blocking;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.reactive.messaging.*;
+import org.jboss.logging.Logger;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import java.util.stream.Stream;
 
+import static io.smallrye.reactive.messaging.kafka.i18n.KafkaLogging.log;
+
 @ApplicationScoped
 public class MyReactiveMessagingApplication {
+
+    @ConfigProperty(name = "fail-on-message", defaultValue = "false")
+    private boolean failOnMessage;
 
     @Inject
     @Channel("words-out")
     Emitter<String> emitter;
 
-    /**
-     * Sends message to the "words-out" channel, can be used from a JAX-RS resource or any bean of your application.
-     * Messages are sent to the broker.
-     **/
-    void onStart(@Observes StartupEvent ev) {
-        Stream.of("Hello", "with", "SmallRye", "reactive", "message").forEach(string -> emitter.send(string));
-    }
 
     /**
      * Consume the message from the "words-in" channel, uppercase it and send it to the uppercase channel.
@@ -29,7 +32,17 @@ public class MyReactiveMessagingApplication {
      **/
     @Incoming("words-in")
     @Outgoing("uppercase")
+    @Retry(
+            maxRetries = -1,
+            delay = 10
+    )
+    @ExponentialBackoff
+    @Blocking
     public Message<String> toUpperCase(Message<String> message) {
+        if (failOnMessage) {
+            log.log(Logger.Level.ERROR, "Simulated error");
+            throw new RuntimeException("Simulated error");
+        }
         return message.withPayload(message.getPayload().toUpperCase());
     }
 
