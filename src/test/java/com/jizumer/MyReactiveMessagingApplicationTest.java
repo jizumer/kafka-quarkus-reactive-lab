@@ -16,7 +16,7 @@ class MyReactiveMessagingApplicationTest {
 
     @Test
     void test() {
-        assertEquals("HELLO", application.toUpperCase(Message.of("Hello")).getPayload());
-        assertEquals("BONJOUR", application.toUpperCase(Message.of("bonjour")).getPayload());
+        assertEquals("HELLO", application.retryForeverWithExponentialBackoff(Message.of("Hello")).getPayload());
+        assertEquals("BONJOUR", application.retryForeverWithExponentialBackoff(Message.of("bonjour")).getPayload());
     }
 }
